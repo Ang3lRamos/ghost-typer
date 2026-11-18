@@ -126,12 +126,16 @@ async function start(context) {
     indentation: block.indentation,
     buffer: '',
     offset: 0,
+    position: null,
+    expected: null,
+    writeEnd: null,
     owed: 0,
     done: false,
     finished: false,
     releaseTimer: null,
     pending: Promise.resolve(),
   };
+  current.changeListener = vscode.workspace.onDidChangeTextDocument((event) => onDocumentChange(current, event));
   session = current;
   vscode.commands.executeCommand('setContext', 'ghostTyper.active', true);
   showStatus('loading~spin', 'pensando…');
@@ -142,7 +146,7 @@ async function start(context) {
       current.lead = (block.cursorOnComment ? '\n' : '') + (atLineStart ? block.indentation : '');
       showStatus('keyboard', 'listo, escribe');
     }
-    current.raw += text;
+    current.raw += text.replace(/\r/g, '');
     refreshBuffer(current);
   };
 
@@ -268,11 +272,7 @@ async function typeOwedChunks(current) {
     const isFirstChunk = current.offset === 0;
     current.offset += chunk.length;
     current.owed--;
-    await current.editor.edit(
-      (edit) => edit.insert(current.editor.selection.active, chunk),
-      { undoStopBefore: isFirstChunk, undoStopAfter: false }
-    );
-    current.editor.revealRange(current.editor.selection);
+    await insertChunk(current, chunk, isFirstChunk);
   }
   if (session !== current || current.offset === 0) return;
 
@@ -284,6 +284,52 @@ async function typeOwedChunks(current) {
     const percent = Math.round((current.offset / current.buffer.length) * 100);
     showStatus('keyboard', `${percent}%`);
   }
+}
+
+// La posición de escritura la lleva la extensión: si otra extensión mueve el cursor
+// (p. ej. al abrir un docstring con """), el texto sigue saliendo en orden.
+// En archivos CRLF VS Code convierte cada \n en \r\n, así que se inserta ya convertido
+// para que la longitud insertada coincida con lo que queda en el documento.
+async function insertChunk(current, chunk, isFirstChunk) {
+  const { editor } = current;
+  const document = editor.document;
+  const text = document.eol === vscode.EndOfLine.CRLF ? chunk.replace(/\n/g, '\r\n') : chunk;
+  const position = current.position ?? editor.selection.active;
+  const offset = document.offsetAt(position);
+  current.expected = { offset, text };
+  await editor.edit((edit) => edit.insert(position, text), {
+    undoStopBefore: isFirstChunk,
+    undoStopAfter: false,
+  });
+  current.position = document.positionAt(offset + text.length);
+  editor.selection = new vscode.Selection(current.position, current.position);
+  editor.revealRange(editor.selection);
+}
+
+// Otras extensiones reaccionan a lo que se escribe: Pylance, por ejemplo, cierra el docstring
+// apenas aparece un """. Ese texto queda justo detrás de la posición de escritura y acabaría
+// al final del código, así que se quita.
+function onDocumentChange(current, event) {
+  if (session !== current || event.document !== current.editor.document) return;
+  for (const change of event.contentChanges) {
+    const { expected } = current;
+    if (expected && change.rangeLength === 0 && change.rangeOffset === expected.offset && change.text === expected.text) {
+      current.writeEnd = expected.offset + expected.text.length;
+      current.expected = null;
+    } else if (change.rangeLength === 0 && change.text && change.rangeOffset === current.writeEnd) {
+      current.pending = current.pending.then(() => removeForeignText(current, change.text));
+    }
+  }
+}
+
+async function removeForeignText(current, text) {
+  if (session !== current) return;
+  const document = current.editor.document;
+  const start = current.position;
+  const range = new vscode.Range(start, document.positionAt(document.offsetAt(start) + text.length));
+  if (document.getText(range) !== text) return;
+  await current.editor.edit((edit) => edit.delete(range), { undoStopBefore: false, undoStopAfter: false });
+  current.editor.selection = new vscode.Selection(start, start);
 }
 
 // Solo los caracteres visibles cuentan para el tamaño del fragmento. Los espacios, tabs y
@@ -329,6 +375,7 @@ function stop() {
   clearTimeout(session.releaseTimer);
   session.abort.abort();
   session.typeOverride.dispose();
+  session.changeListener.dispose();
   session = null;
   vscode.commands.executeCommand('setContext', 'ghostTyper.active', false);
   statusBar.hide();

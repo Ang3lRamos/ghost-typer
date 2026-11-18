@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.4.7
+
+- Ya no queda un `"""` suelto al final del código en Python. Lo insertaba Pylance al cerrar solo cada docstring, y ahora se quita.
+
+## 0.4.6
+
+- En archivos con saltos de línea CRLF (lo normal en Windows) el texto ya no se descuadra después de cada salto de línea: salía con la sangría corrida, letras perdidas y comillas de más.
+
+## 0.4.5
+
+- El texto ya no se desordena si otra extensión mueve el cursor mientras se escribe (pasaba al abrir un docstring con `"""` en Python).
+
 ## 0.4.4
 
 - La barra de estado es minimalista por defecto: solo un ícono (pensando, listo, terminado). Al pasar el mouse se ve el texto.
