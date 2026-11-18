@@ -1,0 +1,62 @@
+{
+  "name": "ghost-typer",
+  "displayName": "Ghost Typer",
+  "description": "Lee el comentario sobre el cursor, pide la solución a una IA (Claude, Groq u OpenRouter) y la va escribiendo con cada tecla que oprimes.",
+  "version": "0.4.3",
+  "publisher": "angel",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Ang3lRamos/ghost-typer.git" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "ghostTyper.start", "title": "Ghost Typer: Resolver comentario" },
+      { "command": "ghostTyper.stop", "title": "Ghost Typer: Detener" },
+      { "command": "ghostTyper.setApiKey", "title": "Ghost Typer: Configurar API key" }
+    ],
+    "keybindings": [
+      { "command": "ghostTyper.start", "key": "ctrl+alt+g", "mac": "cmd+alt+g", "when": "editorTextFocus" },
+      { "command": "ghostTyper.stop", "key": "escape", "when": "editorTextFocus && ghostTyper.active" }
+    ],
+    "configuration": {
+      "title": "Ghost Typer",
+      "properties": {
+        "ghostTyper.provider": {
+          "type": "string",
+          "enum": ["anthropic", "openrouter", "groq"],
+          "default": "anthropic",
+          "description": "Quién genera la solución. Cada proveedor guarda su propia API key."
+        },
+        "ghostTyper.model": {
+          "type": "string",
+          "default": "claude-sonnet-5-5",
+          "description": "Modelo de Claude que genera la solución (proveedor anthropic)."
+        },
+        "ghostTyper.openrouterModel": {
+          "type": "string",
+          "default": "",
+          "description": "Modelo de OpenRouter (proveedor openrouter), tal como aparece en openrouter.ai/models. Los gratuitos terminan en :free."
+        },
+        "ghostTyper.groqModel": {
+          "type": "string",
+          "default": "openai/gpt-oss-120b",
+          "description": "Modelo de Groq (proveedor groq), tal como aparece en console.groq.com/docs/models."
+        },
+        "ghostTyper.effort": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "xhigh", "max"],
+          "default": "low",
+          "description": "Cuánto piensa Claude antes de escribir. Más bajo = empieza antes. Solo aplica al proveedor anthropic."
+        },
+        "ghostTyper.charsPerKey": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Cuántos caracteres visibles se escriben por tecla, en promedio. Varía un poco en cada tecla (con 3, entre 2 y 4) para que se vea natural; con 1 es siempre 1. Espacios, tabs y saltos de línea no cuentan."
+        }
+      }
+    }
+  }
+}
