@@ -2,7 +2,7 @@
   "name": "ghost-typer",
   "displayName": "Ghost Typer",
   "description": "Lee el comentario sobre el cursor, pide la solución a una IA (Claude, Groq u OpenRouter) y la va escribiendo con cada tecla que oprimes.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "angel",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/Ang3lRamos/ghost-typer.git" },
@@ -49,6 +49,17 @@
           "enum": ["low", "medium", "high", "xhigh", "max"],
           "default": "low",
           "description": "Cuánto piensa Claude antes de escribir. Más bajo = empieza antes. Solo aplica al proveedor anthropic."
+        },
+        "ghostTyper.statusBar": {
+          "type": "string",
+          "enum": ["minimal", "full", "hidden"],
+          "enumDescriptions": [
+            "Solo un ícono: pensando, listo, terminado. Al pasar el mouse se ve el texto.",
+            "Ícono y texto, por ejemplo \"Ghost: pensando…\".",
+            "No muestra nada en la barra de estado. Los errores siguen apareciendo."
+          ],
+          "default": "minimal",
+          "description": "Cuánto muestra Ghost Typer en la barra de estado mientras trabaja."
         },
         "ghostTyper.charsPerKey": {
           "type": "number",

@@ -15,7 +15,7 @@ Funciona con **Claude** (Anthropic), **Groq** (gratis) y **OpenRouter** (tiene m
 Descarga el `.vsix` de la sección [Releases](https://github.com/Ang3lRamos/ghost-typer/releases) o genéralo tú mismo (ver [Desarrollo](#desarrollo)), y luego:
 
 ```bash
-code --install-extension ghost-typer-0.4.3.vsix
+code --install-extension ghost-typer-0.4.4.vsix
 ```
 
 O en VS Code: **Extensiones** → `...` → **Install from VSIX...**
@@ -38,9 +38,9 @@ O en VS Code: **Extensiones** → `...` → **Install from VSIX...**
 
 1. Escribe el problema como comentario (`#`, `//`, `--` o `/* */`), en una o varias líneas.
 2. Deja el cursor en la línea de abajo, o sobre el comentario, y oprime `Ctrl+Alt+G` (`Cmd+Alt+G` en Mac).
-3. Espera a que la barra de estado, abajo a la izquierda, cambie de **Ghost: pensando…** a **Ghost: listo, escribe**.
+3. Espera a que el ícono de la barra de estado, abajo a la izquierda, pase del círculo que gira (pensando) al teclado (listo).
 4. Teclea lo que sea. Cada tecla escribe unos cuantos caracteres de la solución.
-5. Al terminar, la barra dice **✓ Ghost: terminado**.
+5. Al terminar aparece una ✓. Si prefieres ver texto o no ver nada, cambia `ghostTyper.statusBar`.
 
 | Situación | Qué pasa |
 |---|---|
@@ -60,6 +60,7 @@ O en VS Code: **Extensiones** → `...` → **Install from VSIX...**
 | `ghostTyper.openrouterModel` | vacío | Modelo de OpenRouter ([lista](https://openrouter.ai/models)); los gratuitos terminan en `:free` |
 | `ghostTyper.model` | `claude-sonnet-5-5` | Modelo de Claude |
 | `ghostTyper.effort` | `low` | Cuánto piensa Claude antes de escribir; más bajo empieza antes. Solo Anthropic |
+| `ghostTyper.statusBar` | `minimal` | `minimal` (solo ícono; el texto aparece al pasar el mouse), `full` (ícono y texto) o `hidden` (nada). Los errores siempre se muestran |
 | `ghostTyper.charsPerKey` | `3` | Caracteres visibles por tecla, en promedio (con 3, entre 2 y 4). Con `1` escribes exactamente lo que ves |
 
 ## Tus API keys
@@ -95,6 +96,10 @@ Es JavaScript plano, sin dependencias ni paso de compilación. Todo el código e
   ```bash
   npx @vscode/vsce package
   ```
+
+## Cambios
+
+Lo nuevo en la última versión (0.4.4): la barra de estado muestra solo un ícono, y con `ghostTyper.statusBar` puedes ver también el texto u ocultarla. El historial completo está en [CHANGELOG.md](CHANGELOG.md).
 
 ## Licencia
 

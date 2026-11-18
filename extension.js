@@ -134,13 +134,13 @@ async function start(context) {
   };
   session = current;
   vscode.commands.executeCommand('setContext', 'ghostTyper.active', true);
-  showStatus('$(loading~spin) Ghost: pensando…');
+  showStatus('loading~spin', 'pensando…');
 
   const onText = (text) => {
     if (current.lead === null) {
       const atLineStart = block.cursorOnComment || editor.selection.active.character === 0;
       current.lead = (block.cursorOnComment ? '\n' : '') + (atLineStart ? block.indentation : '');
-      showStatus('$(keyboard) Ghost: listo, escribe');
+      showStatus('keyboard', 'listo, escribe');
     }
     current.raw += text;
     refreshBuffer(current);
@@ -277,12 +277,12 @@ async function typeOwedChunks(current) {
   if (session !== current || current.offset === 0) return;
 
   if (!current.done) {
-    showStatus('$(sync~spin) Ghost: el modelo sigue escribiendo…');
+    showStatus('sync~spin', 'el modelo sigue escribiendo…');
   } else if (current.offset >= current.buffer.length) {
     if (!current.finished) finish(current);
   } else {
     const percent = Math.round((current.offset / current.buffer.length) * 100);
-    showStatus(`$(keyboard) Ghost: ${percent}%`);
+    showStatus('keyboard', `${percent}%`);
   }
 }
 
@@ -310,7 +310,7 @@ function chunkSize(average) {
 // para que las teclas de más no acaben escritas después del código.
 function finish(current) {
   current.finished = true;
-  showStatus('$(check) Ghost: terminado');
+  showStatus('check', 'terminado');
   holdUntilQuiet(current);
 }
 
@@ -319,7 +319,8 @@ function holdUntilQuiet(current) {
   current.releaseTimer = setTimeout(() => {
     if (session !== current) return;
     stop();
-    vscode.window.setStatusBarMessage('$(check) Ghost: terminado', 4000);
+    const label = statusLabel('check', 'terminado');
+    if (label) vscode.window.setStatusBarMessage(label, 4000);
   }, RELEASE_AFTER_QUIET_MS);
 }
 
@@ -333,9 +334,19 @@ function stop() {
   statusBar.hide();
 }
 
-function showStatus(text) {
-  statusBar.text = text;
+function showStatus(icon, text) {
+  const label = statusLabel(icon, text);
+  if (!label) return statusBar.hide();
+  statusBar.text = label;
+  statusBar.tooltip = `Ghost Typer: ${text}`;
   statusBar.show();
+}
+
+// El ajuste statusBar decide cuánto se ve: solo el ícono, ícono y texto, o nada.
+function statusLabel(icon, text) {
+  const style = vscode.workspace.getConfiguration('ghostTyper').get('statusBar');
+  if (style === 'hidden') return null;
+  return style === 'full' ? `$(${icon}) Ghost: ${text}` : `$(${icon})`;
 }
 
 module.exports = { activate, deactivate: stop };
