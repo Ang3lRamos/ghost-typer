@@ -55,6 +55,7 @@ function openAICompatible(label, id, url) {
   };
 }
 const RELEASE_AFTER_QUIET_MS = 1500;
+const EDIT_ATTEMPTS = 10;
 const COMMENT_PREFIX =/^\s*(\/\/+|#+|--+|\/\*+|\*+\/?|"""|''')\s?/;
 
 let session = null;
@@ -126,9 +127,8 @@ async function start(context) {
     indentation: block.indentation,
     buffer: '',
     offset: 0,
-    position: null,
+    writeOffset: null,
     expected: null,
-    writeEnd: null,
     owed: 0,
     done: false,
     finished: false,
@@ -272,7 +272,12 @@ async function typeOwedChunks(current) {
     const isFirstChunk = current.offset === 0;
     current.offset += chunk.length;
     current.owed--;
-    await insertChunk(current, chunk, isFirstChunk);
+    if (!(await insertChunk(current, chunk, isFirstChunk))) {
+      if (session !== current) return;
+      stop();
+      vscode.window.showErrorMessage('Ghost Typer: VS Code no aceptó la edición (¿equipo muy cargado?). Se detuvo para no desordenar el código.');
+      return;
+    }
   }
   if (session !== current || current.offset === 0) return;
 
@@ -294,18 +299,53 @@ async function insertChunk(current, chunk, isFirstChunk) {
   const { editor } = current;
   const document = editor.document;
   const text = document.eol === vscode.EndOfLine.CRLF ? chunk.replace(/\n/g, '\r\n') : chunk;
-  const position = current.position ?? editor.selection.active;
-  const offset = document.offsetAt(position);
-  current.expected = { offset, text };
-  await editor.edit((edit) => edit.insert(position, text), {
-    undoStopBefore: isFirstChunk,
-    undoStopAfter: false,
-  });
-  current.position = document.positionAt(offset + text.length);
-  editor.selection = new vscode.Selection(current.position, current.position);
+  current.writeOffset ??= document.offsetAt(editor.selection.active);
+  const applied = await editWithRetry(
+    current,
+    () => {
+      const offset = current.writeOffset;
+      current.expected = { offset, text };
+      return (edit) => edit.insert(document.positionAt(offset), text);
+    },
+    { undoStopBefore: isFirstChunk, undoStopAfter: false }
+  );
+  if (!applied) return false;
+  // Normalmente onDocumentChange ya movió writeOffset; esto cubre el caso en que no reconoció el cambio.
+  if (current.expected) {
+    current.writeOffset = current.expected.offset + text.length;
+    current.expected = null;
+  }
+  moveCursorToWriteOffset(current);
   editor.revealRange(editor.selection);
+  return true;
 }
 
+// Con el equipo cargado, otra edición (Pylance, un formateador, una tecla) puede aplicarse entre
+// que se pide la edición y VS Code la procesa. Entonces editor.edit devuelve false sin escribir nada,
+// así que se vuelve a intentar desde la posición ya actualizada en lugar de dar el texto por escrito.
+// build devuelve la edición a aplicar, o null si ya no hay nada que hacer.
+async function editWithRetry(current, build, options) {
+  for (let attempt = 1; attempt <= EDIT_ATTEMPTS; attempt++) {
+    if (session !== current) return false;
+    const callback = build();
+    if (!callback) return true;
+    try {
+      if (await current.editor.edit(callback, options)) return true;
+    } catch {
+      return false;
+    }
+    current.expected = null;
+    await new Promise((resolve) => setTimeout(resolve, attempt * 20));
+  }
+  return false;
+}
+
+function moveCursorToWriteOffset(current) {
+  const position = current.editor.document.positionAt(current.writeOffset);
+  current.editor.selection = new vscode.Selection(position, position);
+}
+
+// Los cambios ajenos que caen antes de la posición de escritura la desplazan.
 // Otras extensiones reaccionan a lo que se escribe: Pylance, por ejemplo, cierra el docstring
 // apenas aparece un """. Ese texto queda justo detrás de la posición de escritura y acabaría
 // al final del código, así que se quita.
@@ -314,22 +354,33 @@ function onDocumentChange(current, event) {
   for (const change of event.contentChanges) {
     const { expected } = current;
     if (expected && change.rangeLength === 0 && change.rangeOffset === expected.offset && change.text === expected.text) {
-      current.writeEnd = expected.offset + expected.text.length;
+      current.writeOffset = expected.offset + expected.text.length;
       current.expected = null;
-    } else if (change.rangeLength === 0 && change.text && change.rangeOffset === current.writeEnd) {
+    } else if (current.writeOffset === null) {
+      continue;
+    } else if (change.rangeLength === 0 && change.text && change.rangeOffset === current.writeOffset) {
       current.pending = current.pending.then(() => removeForeignText(current, change.text));
+    } else if (change.rangeOffset + change.rangeLength <= current.writeOffset) {
+      current.writeOffset += change.text.length - change.rangeLength;
     }
   }
 }
 
 async function removeForeignText(current, text) {
-  if (session !== current) return;
   const document = current.editor.document;
-  const start = current.position;
-  const range = new vscode.Range(start, document.positionAt(document.offsetAt(start) + text.length));
-  if (document.getText(range) !== text) return;
-  await current.editor.edit((edit) => edit.delete(range), { undoStopBefore: false, undoStopAfter: false });
-  current.editor.selection = new vscode.Selection(start, start);
+  await editWithRetry(
+    current,
+    () => {
+      const range = new vscode.Range(
+        document.positionAt(current.writeOffset),
+        document.positionAt(current.writeOffset + text.length)
+      );
+      if (document.getText(range) !== text) return null;
+      return (edit) => edit.delete(range);
+    },
+    { undoStopBefore: false, undoStopAfter: false }
+  );
+  if (session === current) moveCursorToWriteOffset(current);
 }
 
 // Solo los caracteres visibles cuentan para el tamaño del fragmento. Los espacios, tabs y

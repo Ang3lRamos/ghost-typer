@@ -2,7 +2,7 @@
   "name": "ghost-typer",
   "displayName": "Ghost Typer",
   "description": "Lee el comentario sobre el cursor, pide la solución a una IA (Claude, Groq u OpenRouter) y la va escribiendo con cada tecla que oprimes.",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "publisher": "angel",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/Ang3lRamos/ghost-typer.git" },

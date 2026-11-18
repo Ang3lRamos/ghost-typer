@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.4.8
+
+- Con el equipo muy cargado ya no se pierden letras ni se descuadra el código. VS Code a veces rechazaba una edición porque otra se le adelantaba, y el texto se daba por escrito igual. Ahora se reintenta, y si VS Code sigue sin aceptarla, Ghost Typer se detiene con un aviso.
+
 ## 0.4.7
 
 - Ya no queda un `"""` suelto al final del código en Python. Lo insertaba Pylance al cerrar solo cada docstring, y ahora se quita.
